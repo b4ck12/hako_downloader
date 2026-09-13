@@ -9,7 +9,7 @@ on:
       pages:
         description: 'Number of feed pages to scan from Latest Updates (Mới cập nhật)'
         required: false
-        default: '3'
+        default: '5'
         type: string
       force:
         description: 'Force re-sync all checked novels regardless of chapter cache'
