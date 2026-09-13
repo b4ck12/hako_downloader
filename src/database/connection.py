@@ -81,7 +81,6 @@ CREATE TABLE IF NOT EXISTS chapters (
 
 CREATE INDEX IF NOT EXISTS idx_chapters_novel_id ON chapters(novel_id);
 CREATE INDEX IF NOT EXISTS idx_chapters_volume_id ON chapters(volume_id);
-CREATE INDEX IF NOT EXISTS idx_chapters_url ON chapters(url);
 CREATE INDEX IF NOT EXISTS idx_chapters_status ON chapters(crawl_status);
 
 -- Bảng quản lý tất cả ảnh (Ảnh bìa & Ảnh minh họa trong chương)

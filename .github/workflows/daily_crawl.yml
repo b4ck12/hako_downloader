@@ -9,7 +9,7 @@ on:
       pages:
         description: 'Number of feed pages to scan from Latest Updates (Mới cập nhật)'
         required: false
-        default: '5'
+        default: '3'
         type: string
       force:
         description: 'Force re-sync all checked novels regardless of chapter cache'
@@ -25,7 +25,7 @@ jobs:
   crawl:
     name: Crawl Daily Updates (6h Interval)
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 60
 
     permissions:
       contents: write
@@ -55,6 +55,18 @@ jobs:
           restore-keys: |
             hako-db-${{ runner.os }}-
 
+      - name: Ensure Database is Ready (Cache or Skeleton Seed)
+        run: |
+          mkdir -p data
+          # If data/hako.db does not exist or is less than 1MB (e.g. cache miss), seed from committed skeleton
+          if [ ! -f data/hako.db ] || [ $(stat -c%s data/hako.db 2>/dev/null || echo 0) -lt 1000000 ]; then
+            echo "No cached DB found. Initializing data/hako.db from committed data/hako_skeleton.db..."
+            cp data/hako_skeleton.db data/hako.db
+            echo "Seeded database ready: $(stat -c%s data/hako.db) bytes."
+          else
+            echo "Restored database from cache: $(stat -c%s data/hako.db) bytes."
+          fi
+
       - name: Setup Cloudflare WARP (Bypass Datacenter IP blocking)
         uses: fscarmen/warp-on-actions@v1.4
         continue-on-error: true
@@ -79,20 +91,20 @@ jobs:
 
       - name: Run Daily Incremental Crawl
         run: |
-          PAGES="${{ github.event.inputs.pages || '5' }}"
+          PAGES="${{ github.event.inputs.pages || '3' }}"
           FORCE="${{ github.event.inputs.force == 'true' && '--force' || '' }}"
           echo "Starting daily crawl (pages: $PAGES, force: $FORCE)..."
-          python main.py daily --pages "$PAGES" $FORCE
+          python main.py --config config/config_ci.yaml daily --pages "$PAGES" $FORCE
 
       - name: Show Database Statistics
         run: |
-          python main.py stats
+          python main.py --config config/config_ci.yaml stats
 
       - name: Package Crawled Data & Database
         run: |
           mkdir -p artifacts
           python -c "import sqlite3, os; [sqlite3.connect(f).execute('PRAGMA wal_checkpoint(TRUNCATE);') for f in ['data/hako.db'] if os.path.exists(f)]"
-          zip -r "artifacts/hako_daily_${{ github.run_id }}.zip" data output logs -x "*.pyc" -x "*__pycache__*"
+          zip -r "artifacts/hako_daily_${{ github.run_id }}.zip" data output logs -x "*.pyc" -x "*__pycache__*" -x "data/hako_skeleton.db"
 
       - name: Upload Daily Crawl Artifact
         uses: actions/upload-artifact@v4

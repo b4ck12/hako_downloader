@@ -8,7 +8,8 @@ url_list.txt
 hako_plw
 TODO.md
 hako_session
-data
+data/*
+!data/hako_skeleton.db
 logs
 artifacts
 backups

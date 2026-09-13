@@ -365,3 +365,28 @@ async def handle_merge(
     else:
         console.print("[bold green]✨ Quá trình gộp dữ liệu từ GitHub vào máy tính đã hoàn tất thành công![/bold green]")
 
+
+async def handle_export_seed(
+    source_db: Optional[str] = None,
+    output_db: Optional[str] = None,
+    config_path: Optional[str] = None,
+):
+    """Exports a lightweight skeleton SQLite database for GitHub Actions seeding."""
+    from ..database.skeleton import generate_skeleton_db
+
+    settings = load_config(config_path) if config_path else CONFIG
+    src_path = Path(source_db) if source_db else settings.database.db_path
+    dst_path = Path(output_db) if output_db else src_path.parent / "hako_skeleton.db"
+
+    console.print(f"[bold cyan]Creating lightweight skeleton database from {src_path} -> {dst_path}...[/bold cyan]")
+    src_sz, dst_sz, elapsed = generate_skeleton_db(src_path, dst_path)
+
+    saved_percent = (1.0 - (dst_sz / src_sz)) * 100.0 if src_sz > 0 else 0
+    console.print(
+        f"[bold green]✓ Skeleton DB created successfully in {elapsed:.1f}s![/bold green]\n"
+        f"  Original DB size: [cyan]{format_bytes(src_sz)}[/cyan]\n"
+        f"  Skeleton DB size: [bold green]{format_bytes(dst_sz)}[/bold green] (reduced by [bold yellow]{saved_percent:.1f}%[/bold yellow])\n"
+        f"  Ready to push to GitHub: [green]{dst_path}[/green]"
+    )
+
+

@@ -39,6 +39,7 @@ from src.cli.commands import (
     handle_stats,
     handle_test_proxy,
     handle_merge,
+    handle_export_seed,
 )
 
 
@@ -126,6 +127,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_merge.add_argument("--no-backup", action="store_true", help="Disable automatic target DB backup before merge")
     p_merge.add_argument("--dry-run", action="store_true", help="Simulate merge without saving any changes")
 
+    # 15. export-seed
+    p_seed = subparsers.add_parser("export-seed", help="Export a lightweight skeleton SQLite database for GitHub Actions seeding")
+    p_seed.add_argument("--source", "-s", type=str, default=None, help="Source SQLite DB path (default: from config)")
+    p_seed.add_argument("--out", "-o", type=str, default=None, help="Output skeleton DB path (default: data/hako_skeleton.db)")
+
     return parser
 
 
@@ -199,6 +205,12 @@ async def main_async():
             target_output=args.target_output,
             backup=not args.no_backup,
             dry_run=args.dry_run,
+            config_path=args.config,
+        )
+    elif args.command == "export-seed":
+        await handle_export_seed(
+            source_db=args.source,
+            output_db=args.out,
             config_path=args.config,
         )
 
