@@ -55,6 +55,30 @@ jobs:
           restore-keys: |
             hako-db-${{ runner.os }}-
 
+      - name: Setup Cloudflare WARP (Bypass Datacenter IP blocking)
+        uses: fscarmen/warp-action@v1.1.2
+        continue-on-error: true
+        with:
+          mode: warp
+
+      - name: Setup Tor Service (Fallback Proxy)
+        continue-on-error: true
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq tor
+          sudo systemctl start tor
+          sleep 2
+          echo "Tor service status:"
+          sudo systemctl status tor --no-pager || true
+
+      - name: Verify Network & docln.sbs Connectivity
+        run: |
+          echo "Checking outbound public IP..."
+          curl -s https://api.ipify.org || echo "Could not fetch public IP"
+          echo ""
+          echo "Testing HTTP connection to docln.sbs..."
+          curl -sI -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            "https://docln.sbs/danh-sach?sapxep=capnhat" | head -n 12 || echo "Curl test completed"
+
       - name: Run Daily Incremental Crawl
         run: |
           PAGES="${{ github.event.inputs.pages || '5' }}"
@@ -69,6 +93,7 @@ jobs:
       - name: Package Crawled Data & Database
         run: |
           mkdir -p artifacts
+          python -c "import sqlite3, os; [sqlite3.connect(f).execute('PRAGMA wal_checkpoint(TRUNCATE);') for f in ['data/hako.db'] if os.path.exists(f)]"
           zip -r "artifacts/hako_daily_${{ github.run_id }}.zip" data output logs -x "*.pyc" -x "*__pycache__*"
 
       - name: Upload Daily Crawl Artifact

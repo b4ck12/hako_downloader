@@ -57,9 +57,17 @@ class DailySyncEngine:
 
     def _get_headers(self, referer: Optional[str] = None) -> Dict[str, str]:
         return {
-            "User-Agent": random.choice(USER_AGENTS),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+            "Sec-Ch-Ua-Mobile": "?0",
+            "Sec-Ch-Ua-Platform": '"Windows"',
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
             "Referer": referer or self.settings.crawler.base_url,
         }
 
@@ -98,6 +106,12 @@ class DailySyncEngine:
                         log.info(f"[DailyFeed] Page {page_num} found {len(items)} updated items.")
                         return items
 
+                    # Log detailed warning for non-200 responses
+                    log.warning(
+                        f"[DailyFeed] Page {page_num} attempt {attempt}/3 returned HTTP {resp.status_code}. "
+                        f"Preview: {resp.text[:180].replace(chr(10), ' ')}"
+                    )
+
                     if resp.status_code in (429, 502, 503, 504):
                         await self.state.rate_limiter.on_429()
                         if self.proxy_manager.is_enabled:
@@ -105,11 +119,19 @@ class DailySyncEngine:
                         else:
                             await self.state.trigger_backoff(30.0)
                             await self.state.wait_for_proceed()
+                    elif resp.status_code == 403:
+                        log.error(
+                            f"[DailyFeed] HTTP 403 Forbidden on page {page_num}. "
+                            "Cloudflare WAF / Datacenter IP blocking detected."
+                        )
+                        if self.proxy_manager.is_enabled:
+                            self.proxy_manager.rotate_proxy()
+                        await asyncio.sleep(2.0)
                     else:
                         await asyncio.sleep(2.0)
 
             except Exception as e:
-                log.warning(f"[DailyFeed] Failed to scan page {page_num}: {e}")
+                log.warning(f"[DailyFeed] Failed to scan page {page_num} (Attempt {attempt}/3): {e}")
                 if self.proxy_manager.is_enabled:
                     self.proxy_manager.rotate_proxy()
                 await asyncio.sleep(2.0)
