@@ -17,9 +17,13 @@ Hệ thống crawl light novel chuyên nghiệp từ **Docln (Hako)** với cơ 
    - [5. Post-Retry (Thử lại các mục lỗi)](#5-post-retry-dead-letter-queue)
    - [6. Export (.txt & .md)](#6-export-xuất-file-truyện)
    - [7. Stats & Dashboard](#7-stats-thống-kê-database)
-   - [8. Test Proxy / Tor](#8-test-proxy--tor)
-   - [9. Merge DB & Media (Gộp dữ liệu từ GitHub)](#10-merge-gộp-db--media-từ-github-actions-vào-máy-tính)
-6. [GitHub Actions Auto-Crawl (Mỗi 6 tiếng)](#-github-actions-auto-crawl-mỗi-6-tiếng)
+   - [8. Stats & Dashboard](#8-stats-thống-kê-database)
+   - [9. Export Seed (Tạo DB Skeleton cho CI)](#9-export-seed-tạo-database-skeleton-cho-ci)
+   - [10. Merge DB & Media (Gộp dữ liệu từ GitHub)](#10-merge-gộp-db--media-từ-github-actions-vào-máy-tính)
+6. [Hướng Dẫn Chạy GitHub Actions Auto-Crawl](#-hướng-dẫn-chạy-github-actions-auto-crawl)
+   - [Cách 1: Chạy thủ công trên web GitHub](#cách-1-chạy-thủ-công-trên-giao-diện-web-github)
+   - [Cách 2: Tự động chạy định kỳ mỗi 6 tiếng](#cách-2-tự-động-chạy-định-kỳ-mỗi-6-tiếng)
+   - [Cách 3: Chạy qua GitHub CLI](#cách-3-chạy-bằng-github-cli-gh)
 7. [Cơ Chế Chống Ban & Bảo Vệ](#-cơ-chế-chống-ban--bảo-vệ)
 
 ---
@@ -233,13 +237,25 @@ python main.py stats
 
 ---
 
+### 9. Export Seed (Tạo Database Skeleton cho CI)
+Xuất bản SQLite khung siêu nhẹ (~65 MB) từ database đầy đủ (5.3 GB) để đẩy lên GitHub. Bản này giữ nguyên toàn bộ 5.500+ truyện và 148.000+ chương cũ nhưng bỏ nội dung chữ, giúp GitHub Actions nhận diện truyện cũ và không cào lại từ đầu:
+```bash
+# Tạo file data/hako_skeleton.db
+python main.py export-seed
+
+# Đẩy bản cập nhật lên GitHub
+git add data/hako_skeleton.db
+git commit -m "update: refresh seed database"
+git push origin master
+```
+
 ---
 
 ### 10. Merge (Gộp DB & Media từ GitHub Actions vào máy tính)
 Gộp dữ liệu crawl tự động từ GitHub Actions (file `.zip`, thư mục giải nén hoặc file `.db`) vào SQLite Database và thư mục media trên máy tính:
 ```bash
 # 1. Gộp trực tiếp từ file zip tải từ GitHub Actions Artifact / Release
-python main.py merge --source "C:/Users/MinhDuc/Downloads/hako-daily-data.zip"
+python main.py merge --source "C:/Users/MinhDuc/Downloads/hako_daily_xxxx.zip"
 
 # 2. Chạy thử nghiệm (Dry-run) để xem trước thống kê thay đổi mà không ghi vào DB
 python main.py merge --source "path/to/hako_daily.zip" --dry-run
@@ -256,13 +272,45 @@ python main.py merge --download-latest --token "ghp_your_token_here"
 
 ---
 
-## ⚡ GitHub Actions Auto-Crawl (Mỗi 6 tiếng)
+## ⚡ Hướng Dẫn Chạy GitHub Actions Auto-Crawl
 
-Repository được tích hợp sẵn GitHub Actions workflow (`.github/workflows/daily_crawl.yml`):
-- ⏰ **Tần suất**: Tự động chạy mỗi 6 tiếng một lần (`0 */6 * * *` lúc 00:00, 06:00, 12:00, 18:00 UTC).
-- 🖱️ **Kích hoạt thủ công**: Hỗ trợ nút `Run workflow` trong tab **Actions** trên GitHub với tuỳ chọn số trang cần cào (`pages`).
-- 💾 **Caching**: Tự động lưu cache database SQLite giữa các lượt chạy để chỉ cào những chương mới nhất.
-- 📦 **Artifacts & Releases**: Đóng gói toàn bộ database `hako.db`, hình ảnh `output/media/` và file xuất `output/novels/` thành file zip để bạn tải về gộp vào máy tính.
+Workflow [`.github/workflows/daily_crawl.yml`](.github/workflows/daily_crawl.yml) tự động đồng bộ chương mới mỗi 6 tiếng, kết hợp proxy Tor và database skeleton nạp sẵn để hoàn tất chỉ trong **5 – 15 phút**.
+
+### Cách 1: Chạy thủ công trên giao diện web GitHub
+1. Mở trình duyệt truy cập: **[GitHub Actions tab](https://github.com/minhduc1212/hako_downloader/actions)**.
+2. Ở cột bên trái, nhấp chọn workflow **Daily Novel Crawl**.
+3. Nhấp nút **Run workflow** ▾ ở góc phải:
+   - **Branch**: Chọn `master`.
+   - **Number of feed pages**: Nhập số trang cần quét (mặc định: `3`).
+   - **Force re-sync**: Để trống (`false`).
+4. Nhấp nút xanh **Run workflow**.
+5. Sau 5 giây, tiến trình chạy sẽ xuất hiện trên danh sách, nhấp vào để theo dõi log trực tiếp.
+
+### Cách 2: Tự động chạy định kỳ mỗi 6 tiếng
+Bạn không cần thao tác gì, GitHub sẽ tự động kích hoạt workflow theo lịch:
+- **07:00** sáng (00:00 UTC)
+- **13:00** chiều (06:00 UTC)
+- **19:00** tối (12:00 UTC)
+- **01:00** đêm (18:00 UTC)
+
+### Cách 3: Chạy bằng GitHub CLI (`gh`)
+Nếu máy bạn có cài [GitHub CLI](https://cli.github.com/):
+```bash
+# Kích hoạt chạy workflow quét 3 trang
+gh workflow run daily_crawl.yml -f pages=3
+
+# Theo dõi tiến trình chạy trực tiếp trên terminal
+gh run watch
+```
+
+### 📥 Cách lấy dữ liệu sau khi workflow chạy xong
+1. Vào tab **Actions** > chọn lượt chạy thành công mới nhất.
+2. Cuộn xuống phần **Artifacts** và tải file zip **`hako-daily-data`** (hoặc vào mục **Releases** tải file zip ở bản release `daily-latest`).
+3. Dưới máy tính, chạy lệnh gộp:
+   ```bash
+   python main.py merge --source "C:/Users/MinhDuc/Downloads/hako_daily_xxxx.zip"
+   ```
+   Tất cả các chương và hình ảnh mới sẽ được tự động tích hợp nguyên vẹn vào database 5.3 GB trên máy bạn!
 
 ---
 
