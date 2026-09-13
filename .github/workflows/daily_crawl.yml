@@ -91,7 +91,7 @@ jobs:
 
       - name: Run Daily Incremental Crawl
         run: |
-          PAGES="${{ github.event.inputs.pages || '3' }}"
+          PAGES="${{ github.event.inputs.pages || '5' }}"
           FORCE="${{ github.event.inputs.force == 'true' && '--force' || '' }}"
           echo "Starting daily crawl (pages: $PAGES, force: $FORCE)..."
           python main.py --config config/config_ci.yaml daily --pages "$PAGES" $FORCE
