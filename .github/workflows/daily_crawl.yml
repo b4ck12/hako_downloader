@@ -56,10 +56,8 @@ jobs:
             hako-db-${{ runner.os }}-
 
       - name: Setup Cloudflare WARP (Bypass Datacenter IP blocking)
-        uses: fscarmen/warp-action@v1.1.2
+        uses: fscarmen/warp-on-actions@v1.4
         continue-on-error: true
-        with:
-          mode: warp
 
       - name: Setup Tor Service (Fallback Proxy)
         continue-on-error: true
