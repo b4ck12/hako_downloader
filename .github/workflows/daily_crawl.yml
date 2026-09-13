@@ -1,0 +1,105 @@
+name: Daily Novel Crawl
+
+on:
+  schedule:
+    # Run every 6 hours (00:00, 06:00, 12:00, 18:00 UTC)
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      pages:
+        description: 'Number of feed pages to scan from Latest Updates (Mới cập nhật)'
+        required: false
+        default: '5'
+        type: string
+      force:
+        description: 'Force re-sync all checked novels regardless of chapter cache'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: daily-crawl
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    name: Crawl Daily Updates (6h Interval)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    permissions:
+      contents: write
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Restore SQLite database cache
+        uses: actions/cache@v4
+        id: db-cache
+        with:
+          path: data/hako.db
+          key: hako-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            hako-db-${{ runner.os }}-
+
+      - name: Run Daily Incremental Crawl
+        run: |
+          PAGES="${{ github.event.inputs.pages || '5' }}"
+          FORCE="${{ github.event.inputs.force == 'true' && '--force' || '' }}"
+          echo "Starting daily crawl (pages: $PAGES, force: $FORCE)..."
+          python main.py daily --pages "$PAGES" $FORCE
+
+      - name: Show Database Statistics
+        run: |
+          python main.py stats
+
+      - name: Package Crawled Data & Database
+        run: |
+          mkdir -p artifacts
+          zip -r "artifacts/hako_daily_${{ github.run_id }}.zip" data output logs -x "*.pyc" -x "*__pycache__*"
+
+      - name: Upload Daily Crawl Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hako-daily-data
+          path: |
+            data/hako.db
+            output/
+            logs/
+            artifacts/*.zip
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Publish or Update Rolling Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RUN_DATE=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          NOTES="### 🚀 Hako Automated Daily Crawl Data
+          - **Timestamp**: $RUN_DATE
+          - **Run ID**: ${{ github.run_id }}
+          
+          #### 📥 How to merge into your local database:
+          1. Download the zip file attached below (or from the Actions artifact).
+          2. Run the merge command on your local machine:
+          \`\`\`bash
+          python main.py merge --source /path/to/hako_daily_${{ github.run_id }}.zip
+          \`\`\`"
+
+          gh release create daily-latest artifacts/*.zip \
+            --title "Latest Daily Crawl Data ($RUN_DATE)" \
+            --notes "$NOTES" \
+            --clobber || echo "Notice: Release upload skipped or permissions limited."

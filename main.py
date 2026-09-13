@@ -38,6 +38,7 @@ from src.cli.commands import (
     handle_export_all,
     handle_stats,
     handle_test_proxy,
+    handle_merge,
 )
 
 
@@ -115,6 +116,16 @@ def build_parser() -> argparse.ArgumentParser:
     # 13. test-proxy
     subparsers.add_parser("test-proxy", help="Test proxy/Tor connection and verify public IP")
 
+    # 14. merge
+    p_merge = subparsers.add_parser("merge", help="Merge database and media data downloaded from GitHub Actions with local data")
+    p_merge.add_argument("--source", "-s", type=str, default=None, help="Path to downloaded .zip, directory, or .db file from GitHub Actions")
+    p_merge.add_argument("--download-latest", action="store_true", help="Automatically fetch the latest crawl artifact or release from GitHub")
+    p_merge.add_argument("--token", type=str, default=None, help="GitHub Personal Access Token (for private repo or artifact API)")
+    p_merge.add_argument("--target-db", type=str, default=None, help="Target SQLite DB path (default: data/hako.db)")
+    p_merge.add_argument("--target-output", type=str, default=None, help="Target output media directory (default: output)")
+    p_merge.add_argument("--no-backup", action="store_true", help="Disable automatic target DB backup before merge")
+    p_merge.add_argument("--dry-run", action="store_true", help="Simulate merge without saving any changes")
+
     return parser
 
 
@@ -179,6 +190,17 @@ async def main_async():
         await handle_stats()
     elif args.command == "test-proxy":
         await handle_test_proxy(config_path=args.config)
+    elif args.command == "merge":
+        await handle_merge(
+            source=args.source,
+            download_latest=args.download_latest,
+            token=args.token,
+            target_db=args.target_db,
+            target_output=args.target_output,
+            backup=not args.no_backup,
+            dry_run=args.dry_run,
+            config_path=args.config,
+        )
 
 
 def main():

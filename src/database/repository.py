@@ -19,6 +19,12 @@ class NovelRepository:
     def __init__(self, db_manager: Optional[DatabaseManager] = None):
         self.db_manager = db_manager or get_db_manager()
 
+    async def checkpoint(self, truncate: bool = True):
+        """Flushes SQLite WAL pages into main database file."""
+        mode = "TRUNCATE" if truncate else "PASSIVE"
+        async with self.db_manager.get_connection() as conn:
+            await conn.execute(f"PRAGMA wal_checkpoint({mode});")
+
     # ─────────────────────────────────────────────────────────────
     #  NOVELS
     # ─────────────────────────────────────────────────────────────

@@ -10,3 +10,8 @@ TODO.md
 hako_session
 data
 logs
+artifacts
+backups
+__pycache__/
+*.pyc
+test

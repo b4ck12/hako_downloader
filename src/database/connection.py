@@ -191,6 +191,15 @@ class DatabaseManager:
         conn.execute("PRAGMA foreign_keys = ON;")
         return conn
 
+    def checkpoint(self, truncate: bool = True):
+        """Flushes SQLite WAL pages into main database file."""
+        mode = "TRUNCATE" if truncate else "PASSIVE"
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(f"PRAGMA wal_checkpoint({mode});")
+        except Exception:
+            pass
+
 
 _db_manager_instance: Optional[DatabaseManager] = None
 

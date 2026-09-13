@@ -163,10 +163,12 @@ class DailySyncEngine:
                     # Existing novel has new chapter
                     log.info(f"[DailySync] [NEW CHAPTER] '{item.novel_title}' has update: {item.latest_chapter_title or 'new chapters'}")
                     novels_to_crawl.append(item.novel_url)
-                else:
-                    # Even if latest_chapter_url wasn't extracted, queue existing novel to sync any new chapters
-                    log.debug(f"[DailySync] '{item.novel_title}' queuing check for new chapters.")
+                elif not item.latest_chapter_url:
+                    # If latest_chapter_url wasn't extracted from feed, queue novel to check
+                    log.debug(f"[DailySync] '{item.novel_title}' latest chapter URL not in feed card -> checking novel.")
                     novels_to_crawl.append(item.novel_url)
+                else:
+                    log.debug(f"[DailySync] '{item.novel_title}' already up to date in DB, skipping.")
 
             # Deduplicate URLs to crawl
             unique_novels_to_crawl = list(dict.fromkeys(novels_to_crawl))
@@ -232,6 +234,7 @@ class DailySyncEngine:
             details={"pages_scanned": pages_to_check, "updated_novels_count": len(novels_to_crawl)},
         )
         await self.repository.update_crawl_log(log_model)
+        await self.repository.checkpoint(truncate=True)
 
         # 5. Summary Table
         table = Table(title="Daily Sync Report", border_style="cyan", show_header=True)

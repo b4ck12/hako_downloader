@@ -18,7 +18,9 @@ Hệ thống crawl light novel chuyên nghiệp từ **Docln (Hako)** với cơ 
    - [6. Export (.txt & .md)](#6-export-xuất-file-truyện)
    - [7. Stats & Dashboard](#7-stats-thống-kê-database)
    - [8. Test Proxy / Tor](#8-test-proxy--tor)
-6. [Cơ Chế Chống Ban & Bảo Vệ](#-cơ-chế-chống-ban--bảo-vệ)
+   - [9. Merge DB & Media (Gộp dữ liệu từ GitHub)](#10-merge-gộp-db--media-từ-github-actions-vào-máy-tính)
+6. [GitHub Actions Auto-Crawl (Mỗi 6 tiếng)](#-github-actions-auto-crawl-mỗi-6-tiếng)
+7. [Cơ Chế Chống Ban & Bảo Vệ](#-cơ-chế-chống-ban--bảo-vệ)
 
 ---
 
@@ -231,11 +233,36 @@ python main.py stats
 
 ---
 
-### 9. Test Proxy / Tor
-Kiểm tra kết nối Proxy / Tor và hiển thị IP đang sử dụng:
+---
+
+### 10. Merge (Gộp DB & Media từ GitHub Actions vào máy tính)
+Gộp dữ liệu crawl tự động từ GitHub Actions (file `.zip`, thư mục giải nén hoặc file `.db`) vào SQLite Database và thư mục media trên máy tính:
 ```bash
-python main.py test-proxy
+# 1. Gộp trực tiếp từ file zip tải từ GitHub Actions Artifact / Release
+python main.py merge --source "C:/Users/MinhDuc/Downloads/hako-daily-data.zip"
+
+# 2. Chạy thử nghiệm (Dry-run) để xem trước thống kê thay đổi mà không ghi vào DB
+python main.py merge --source "path/to/hako_daily.zip" --dry-run
+
+# 3. Gộp từ một thư mục hoặc file database khác
+python main.py merge --source "data/github_hako.db"
+
+# 4. Tự động tải artifact mới nhất từ GitHub Actions qua API (hỗ trợ PAT token)
+python main.py merge --download-latest --token "ghp_your_token_here"
 ```
+
+> [!TIP]
+> Hệ thống sẽ tự động tạo bản sao lưu an toàn (`data/backups/hako_backup_YYYYMMDD_HHMMSS.db`) trước khi tiến hành gộp dữ liệu, đảm bảo 100% không bao giờ bị mất mát dữ liệu.
+
+---
+
+## ⚡ GitHub Actions Auto-Crawl (Mỗi 6 tiếng)
+
+Repository được tích hợp sẵn GitHub Actions workflow (`.github/workflows/daily_crawl.yml`):
+- ⏰ **Tần suất**: Tự động chạy mỗi 6 tiếng một lần (`0 */6 * * *` lúc 00:00, 06:00, 12:00, 18:00 UTC).
+- 🖱️ **Kích hoạt thủ công**: Hỗ trợ nút `Run workflow` trong tab **Actions** trên GitHub với tuỳ chọn số trang cần cào (`pages`).
+- 💾 **Caching**: Tự động lưu cache database SQLite giữa các lượt chạy để chỉ cào những chương mới nhất.
+- 📦 **Artifacts & Releases**: Đóng gói toàn bộ database `hako.db`, hình ảnh `output/media/` và file xuất `output/novels/` thành file zip để bạn tải về gộp vào máy tính.
 
 ---
 

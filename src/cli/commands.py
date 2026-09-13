@@ -293,3 +293,75 @@ async def handle_test_proxy(config_path: Optional[str] = None):
         console.print(f"[bold green]✓ Proxy/Tor verified successfully! Public IP: {res.get('ip')}[/bold green]")
     else:
         console.print(f"[bold red]✗ Proxy test failed: {res.get('error') or res}[/bold red]")
+
+
+async def handle_merge(
+    source: Optional[str] = None,
+    download_latest: bool = False,
+    token: Optional[str] = None,
+    target_db: Optional[str] = None,
+    target_output: Optional[str] = None,
+    backup: bool = True,
+    dry_run: bool = False,
+    config_path: Optional[str] = None,
+):
+    """Merges downloaded GitHub Actions database and media files into local environment."""
+    from ..database.merger import DataMerger, print_merge_report
+    from ..utils.github_sync import download_latest_github_artifact
+
+    settings = load_config(config_path) if config_path else CONFIG
+
+    source_path_str = source
+    if download_latest or not source_path_str:
+        if download_latest:
+            console.print("[bold cyan]🔄 Đang tìm kiếm và tải artifact/release mới nhất từ GitHub Actions...[/bold cyan]")
+            downloaded, err = download_latest_github_artifact(token=token)
+            if err:
+                console.print(f"[bold red]✗ {err}[/bold red]")
+                if not source_path_str:
+                    return
+            elif downloaded:
+                source_path_str = str(downloaded)
+                console.print(f"[bold green]✓ Đã tải về thành công file artifact: {source_path_str}[/bold green]")
+        else:
+            console.print(
+                "[bold red]✗ Vui lòng cung cấp đường dẫn dữ liệu nguồn qua `--source <đường_dẫn>` "
+                "(hỗ trợ file .zip, thư mục, hoặc file .db), hoặc dùng cờ `--download-latest` để tự động tải từ GitHub.[/bold red]"
+            )
+            return
+
+    resolved_source = Path(source_path_str)
+    if not resolved_source.exists():
+        console.print(f"[bold red]✗ Đường dẫn nguồn không tồn tại: {resolved_source}[/bold red]")
+        return
+
+    tgt_db = Path(target_db) if target_db else settings.database.db_path
+    tgt_out = Path(target_output) if target_output else settings.app.output_dir
+
+    console.print(
+        Panel(
+            f"[bold cyan]Dữ liệu nguồn:[/bold cyan] {resolved_source}\n"
+            f"[bold cyan]Database đích:[/bold cyan] {tgt_db}\n"
+            f"[bold cyan]Thư mục Media đích:[/bold cyan] {tgt_out}\n"
+            f"[bold cyan]Tạo bản sao lưu (Backup):[/bold cyan] {'Có' if backup and not dry_run else 'Không'}\n"
+            f"[bold cyan]Chế độ chạy thử (Dry Run):[/bold cyan] {'BẬT (Không lưu thay đổi)' if dry_run else 'TẮT (Ghi trực tiếp)'}",
+            title="[bold yellow]Bắt Đầu Tiến Trình Gộp Dữ Liệu (Merge Data)[/bold yellow]",
+            border_style="cyan",
+        )
+    )
+
+    merger = DataMerger(
+        target_db_path=tgt_db,
+        target_output_dir=tgt_out,
+        create_backup=backup,
+        dry_run=dry_run,
+    )
+
+    stats = merger.merge_from_source(resolved_source)
+    print_merge_report(stats)
+
+    if stats.errors:
+        console.print(f"[bold red]⚠️ Tiến trình gộp hoàn tất nhưng có {len(stats.errors)} lỗi xảy ra. Xem chi tiết bảng trên.[/bold red]")
+    else:
+        console.print("[bold green]✨ Quá trình gộp dữ liệu từ GitHub vào máy tính đã hoàn tất thành công![/bold green]")
+
