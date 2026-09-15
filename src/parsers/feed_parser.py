@@ -90,11 +90,12 @@ class FeedParser:
         soup = BeautifulSoup(html, "html.parser")
         urls: List[str] = []
 
+        valid_prefixes = ("/truyen/", "/sang-tac/", "/convert/", "/ai-dich/", "/oln/")
         for a in soup.select("div.thumb_attr.series-title a, .series-title a, .thumb-item-flow a.series-cover"):
             href = a.get("href", "")
             if href:
                 full_url = normalize_url(href, base_url)
-                if full_url not in urls and ("/truyen/" in full_url or "/sang-tac/" in full_url or "/convert/" in full_url):
+                if full_url not in urls and any(prefix in full_url for prefix in valid_prefixes):
                     urls.append(full_url)
 
         return urls

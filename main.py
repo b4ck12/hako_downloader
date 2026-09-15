@@ -58,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_all = subparsers.add_parser("crawl-all", help="Crawl the ENTIRE website novel catalog (scans all pages, adds new novels & chapters)")
     p_all.add_argument("--start-page", type=int, default=1, help="Starting catalog page (default: 1)")
     p_all.add_argument("--end-page", type=int, default=0, help="Ending catalog page (0 = all pages)")
+    p_all.add_argument("--sort", type=str, default="tentruyen", help="Sort order (default: tentruyen, or capnhat, theodoi, etc.)")
     p_all.add_argument("--workers", "-w", type=int, default=None, help="Number of concurrent workers")
     p_all.add_argument("--force", action="store_true", help="Force re-crawl already completed novels")
     p_all.add_argument("--resume-only", action="store_true", help="Only resume incomplete novels in DB without scanning catalog web pages")
@@ -67,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_disc = subparsers.add_parser("discover", help="Scan catalog pages and index all novel URLs into DB without downloading chapters")
     p_disc.add_argument("--start-page", type=int, default=1, help="Starting catalog page (default: 1)")
     p_disc.add_argument("--end-page", type=int, default=0, help="Ending catalog page (0 = all pages)")
+    p_disc.add_argument("--sort", type=str, default="tentruyen", help="Sort order (default: tentruyen)")
     p_disc.add_argument("--pages", "-p", type=str, default=None, help="Specific comma-separated page numbers to scan (e.g. 72,98,100,101)")
 
     # 3. daily
@@ -161,6 +163,7 @@ async def main_async():
         await handle_crawl_all(
             start_page=args.start_page,
             end_page=args.end_page,
+            sort_by=args.sort,
             workers=args.workers,
             force=args.force,
             resume_only=args.resume_only,
@@ -171,6 +174,7 @@ async def main_async():
         await handle_discover(
             start_page=args.start_page,
             end_page=args.end_page,
+            sort_by=args.sort,
             pages_list=args.pages,
             config_path=args.config,
         )

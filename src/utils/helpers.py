@@ -27,7 +27,7 @@ def extract_novel_slug(url: str) -> str:
     parsed = urlparse(url)
     path = parsed.path.strip("/")
     parts = path.split("/")
-    if len(parts) >= 2 and parts[0] in ("truyen", "sang-tac", "convert"):
+    if len(parts) >= 2 and parts[0] in ("truyen", "sang-tac", "convert", "ai-dich", "oln"):
         return parts[1]
     return path.replace("/", "_") or "novel"
 

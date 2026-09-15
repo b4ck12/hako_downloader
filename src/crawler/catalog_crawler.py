@@ -51,9 +51,17 @@ class CatalogCrawler:
             "Referer": "https://docln.sbs/danh-sach",
         }
 
+    def build_catalog_url(self, page: int = 1, sort_by: str = "tentruyen") -> str:
+        """Construct catalog listing URL with all category and status flags enabled."""
+        base = self.settings.crawler.base_url.rstrip("/")
+        return (
+            f"{base}/danh-sach?truyendich=1&sangtac=1&convert=1&dangtienhanh=1&tamngung=1&hoanthanh=1"
+            f"&sapxep={sort_by}&page={page}"
+        )
+
     async def get_total_catalog_pages(self, sort_by: str = "tentruyen") -> int:
-        """Fetch page 1 to detect total page count."""
-        url = f"{self.settings.crawler.base_url}/danh-sach?sapxep={sort_by}&page=1"
+        """Fetch page 1 to detect total page count across all novel categories."""
+        url = self.build_catalog_url(page=1, sort_by=sort_by)
         for _ in range(3):
             try:
                 proxy_url = self.proxy_manager.get_current_proxy()
@@ -71,7 +79,7 @@ class CatalogCrawler:
                 log.debug(f"Error detecting max catalog pages: {e}")
                 self.proxy_manager.rotate_proxy()
                 await asyncio.sleep(1.5)
-        return 114  # Default fallback
+        return 180  # Default fallback
 
     async def _fetch_catalog_page_with_retry(
         self,
@@ -169,7 +177,7 @@ class CatalogCrawler:
             task = progress.add_task("[cyan]Scanning catalog pages...", total=len(pages_to_scan))
 
             for page_num in pages_to_scan:
-                url = f"{self.settings.crawler.base_url}/danh-sach?sapxep={sort_by}&page={page_num}"
+                url = self.build_catalog_url(page=page_num, sort_by=sort_by)
                 html_text = await self._fetch_catalog_page_with_retry(url, page_num=page_num)
 
                 if html_text:
@@ -207,7 +215,7 @@ class CatalogCrawler:
 
             unresolved_pages = []
             for page_num in failed_pages:
-                url = f"{self.settings.crawler.base_url}/danh-sach?sapxep={sort_by}&page={page_num}"
+                url = self.build_catalog_url(page=page_num, sort_by=sort_by)
                 log.info(f"[Catalog Recovery] Retrying failed page {page_num}...")
                 html_text = await self._fetch_catalog_page_with_retry(url, page_num=page_num, max_retries=7)
 
@@ -244,6 +252,7 @@ class CatalogCrawler:
         self,
         start_page: int = 1,
         end_page: int = 0,
+        sort_by: str = "tentruyen",
         workers: Optional[int] = None,
         force_recrawl: bool = False,
         rescan: bool = True,
@@ -273,7 +282,11 @@ class CatalogCrawler:
         else:
             # 1. Rescan catalog pages to discover all novels and register new ones
             log.info("[Catalog] Rescanning catalog pages to index all novels and check for updates...")
-            catalog_urls = await self.discover_catalog_urls(start_page=start_page, end_page=end_page)
+            catalog_urls = await self.discover_catalog_urls(
+                start_page=start_page,
+                end_page=end_page,
+                sort_by=sort_by,
+            )
 
             # 2. Combine catalog discovered URLs with any other novels in DB
             db_novels = await self.repository.get_all_novels(limit=100000)

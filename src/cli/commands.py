@@ -27,6 +27,7 @@ log = get_logger("cli")
 async def handle_crawl_all(
     start_page: int = 1,
     end_page: int = 0,
+    sort_by: str = "tentruyen",
     workers: Optional[int] = None,
     force: bool = False,
     rescan: bool = True,
@@ -40,6 +41,7 @@ async def handle_crawl_all(
     await crawler.crawl_all_catalog(
         start_page=start_page,
         end_page=end_page,
+        sort_by=sort_by,
         workers=workers,
         force_recrawl=force,
         rescan=rescan,
@@ -51,6 +53,7 @@ async def handle_crawl_all(
 async def handle_discover(
     start_page: int = 1,
     end_page: int = 0,
+    sort_by: str = "tentruyen",
     pages_list: Optional[str] = None,
     config_path: Optional[str] = None,
 ):
@@ -68,6 +71,7 @@ async def handle_discover(
     urls = await crawler.discover_catalog_urls(
         start_page=start_page,
         end_page=end_page,
+        sort_by=sort_by,
         specific_pages=specific,
     )
     console.print(f"[bold green]✓ Discovered and indexed {len(urls)} novels into SQLite database![/bold green]")
