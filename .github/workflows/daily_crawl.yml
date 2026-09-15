@@ -70,10 +70,13 @@ jobs:
       - name: Setup Cloudflare WARP (Bypass Datacenter IP blocking)
         uses: fscarmen/warp-on-actions@v1.4
         continue-on-error: true
+        timeout-minutes: 3
 
       - name: Setup Tor Service (Fallback Proxy)
         continue-on-error: true
         run: |
+          # If WARP hung or failed, ensure any broken WireGuard interface/route is cleared
+          sudo wg-quick down warp 2>/dev/null || sudo ip link delete warp 2>/dev/null || true
           sudo apt-get update -qq && sudo apt-get install -y -qq tor
           sudo systemctl start tor
           sleep 2
@@ -82,11 +85,14 @@ jobs:
 
       - name: Verify Network & docln.sbs Connectivity
         run: |
-          echo "Checking outbound public IP..."
+          echo "Checking outbound public IP (Direct / WARP)..."
           curl -s https://api.ipify.org || echo "Could not fetch public IP"
           echo ""
-          echo "Testing HTTP connection to docln.sbs..."
-          curl -sI -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+          echo "Checking Tor SOCKS5 proxy IP (127.0.0.1:9050)..."
+          curl -s --socks5-hostname 127.0.0.1:9050 https://api.ipify.org || echo "Tor proxy check failed"
+          echo ""
+          echo "Testing HTTP connection to docln.sbs via Tor proxy..."
+          curl -sI --socks5-hostname 127.0.0.1:9050 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
             "https://docln.sbs/danh-sach?sapxep=capnhat" | head -n 12 || echo "Curl test completed"
 
       - name: Run Daily Incremental Crawl
